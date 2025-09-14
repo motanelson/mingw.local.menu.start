@@ -28,14 +28,27 @@ typedef struct {
 } Menu;
 
 static int keep_running = 1;
-
+static char *xstrdup(const char *s) {
+#ifdef _WIN32
+    // No MinGW usa _strdup
+    char *r = _strdup(s);
+#else
+    char *r = strdup(s);
+#endif
+    if (!r) {
+        perror("strdup");
+        exit(1);
+    }
+    return r;
+}
+/*
 char *xstrdup(const char *s) {
     if (!s) return NULL;
     char *r = _strdup(s);
     if (!r) { perror("strdup"); exit(1); }
     return r;
 }
-
+*/
 void trim_newline(char *s) {
     if (!s) return;
     size_t i = strlen(s);
@@ -125,19 +138,20 @@ char *run_command_capture(const char *cmd) {
     out[0] = '\0';
 
     char *fullcmd;
-    if (asprintf(&fullcmd, "cmd.exe /C %s", cmd) < 0) {
+    if (asprintf(&fullcmd, "%s > out.txt", cmd) < 0) {
         free(out);
         return NULL;
     }
-
-    fp = _popen(fullcmd, "r");
+    char ccc[4096];
+    strcpy(ccc,fullcmd);
+    strcat(ccc," > out.txt");
+    system(fullcmd);
     free(fullcmd);
-    if (!fp) {
-        snprintf(out, cap, "Erro ao executar comando.\n");
-        return out;
-    }
+    
     char buf[512];
-    while (fgets(buf, sizeof(buf), fp)) {
+    FILE * fps;
+    fps=fopen("out.txt","r");
+    while (fgets(buf, sizeof(buf), fps)) {
         size_t bl = strlen(buf);
         if (used + bl + 1 > cap) {
             cap *= 2;
@@ -147,7 +161,7 @@ char *run_command_capture(const char *cmd) {
         used += bl;
         out[used] = '\0';
     }
-    _pclose(fp);
+    fclose(fps);
     return out;
 }
 
